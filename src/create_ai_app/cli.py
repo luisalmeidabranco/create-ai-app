@@ -12,7 +12,7 @@ from create_ai_app.models import ProjectConfig
 from create_ai_app.scaffold import scaffold_project
 
 app = typer.Typer(
-    name="create-ai-app",
+    name="new-ai-app",
     help="Interactive Python AI/GenAI project scaffolding CLI",
     add_completion=False,
 )
@@ -22,41 +22,20 @@ console = Console()
 # ── option lists ──────────────────────────────────────────────────────────────
 
 _PYTHON_VERSIONS = [
-    questionary.Choice("3.12  (recommended)", value="3.12"),
-    questionary.Choice("3.13", value="3.13"),
+    questionary.Choice("3.13  (recommended)", value="3.13"),
+    questionary.Choice("3.12", value="3.12"),
     questionary.Choice("3.11", value="3.11"),
 ]
 
-_STRUCTURE_TYPES = [
-    questionary.Choice(
-        "Single app",
-        value="Single app",
-        description="One service, one pyproject.toml — the standard starting point",
-    ),
-    questionary.Choice(
-        "Monorepo",
-        value="Monorepo",
-        description="Multiple apps under apps/, one uv workspace — matches the elephant-path pattern",
-    ),
-]
-
-_SINGLE_APP_TYPES = [
-    questionary.Choice("REST API", value="REST API",
+_APP_TYPES = [
+    questionary.Choice("REST API", value="REST API", checked=True,
                        description="FastAPI backend with health endpoint, auth, and LLM service"),
-    questionary.Choice("Agent", value="Agent",
+    questionary.Choice("Agent", value="Agent", checked=False,
                        description="Conversational agent with tool-calling, memory, and context providers"),
-    questionary.Choice("Teams Bot", value="Teams Bot",
+    questionary.Choice("Teams Bot", value="Teams Bot", checked=False,
                        description="Microsoft Teams bot frontdoor — aiohttp adapter, port 3978"),
-    questionary.Choice("Batch / CronJob", value="Batch / CronJob",
+    questionary.Choice("Batch / CronJob", value="Batch / CronJob", checked=False,
                        description="Script or scheduled job that processes data without a web server"),
-]
-
-_MONOREPO_APPS = [
-    questionary.Choice("REST API (FastAPI)", value="REST API", checked=True),
-    questionary.Choice("Agent", value="Agent", checked=False),
-    questionary.Choice("Teams Bot frontdoor", value="Teams Bot", checked=False),
-    questionary.Choice("Batch / CronJob", value="Batch", checked=False),
-    questionary.Choice("Shared library", value="Shared", checked=False),
 ]
 
 _LLM_BACKENDS = [
@@ -83,26 +62,25 @@ _AGENT_FRAMEWORKS = [
                        description="LangChain AgentExecutor + OpenAI Tools"),
 ]
 
-_API_FRAMEWORKS = {
-    "REST API": [
-        questionary.Choice("FastAPI  (recommended)", value="FastAPI",
-                           description="Async, Pydantic v2, automatic OpenAPI docs"),
-        questionary.Choice("Flask", value="Flask",
-                           description="Sync WSGI — simpler but no async"),
-        questionary.Choice("None", value="None",
-                           description="No web layer — library or background service"),
-    ],
-    "Agent": [
-        questionary.Choice("Chainlit  (recommended)", value="Chainlit",
-                           description="Chat UI framework built for LLM agents"),
-        questionary.Choice("FastAPI + SSE", value="FastAPI",
-                           description="Streaming API for custom frontends"),
-        questionary.Choice("Streamlit", value="Streamlit",
-                           description="Quick internal UI — no separate frontend project"),
-        questionary.Choice("None", value="None",
-                           description="Agent library only — integrate into your own entry point"),
-    ],
-}
+_API_FRAMEWORKS_REST = [
+    questionary.Choice("FastAPI  (recommended)", value="FastAPI",
+                       description="Async, Pydantic v2, automatic OpenAPI docs"),
+    questionary.Choice("Flask", value="Flask",
+                       description="Sync WSGI — simpler but no async"),
+    questionary.Choice("None", value="None",
+                       description="No web layer — library or background service"),
+]
+
+_API_FRAMEWORKS_AGENT = [
+    questionary.Choice("Chainlit  (recommended)", value="Chainlit",
+                       description="Chat UI framework built for LLM agents"),
+    questionary.Choice("FastAPI + SSE", value="FastAPI",
+                       description="Streaming API for custom frontends"),
+    questionary.Choice("Streamlit", value="Streamlit",
+                       description="Quick internal UI — no separate frontend project"),
+    questionary.Choice("None", value="None",
+                       description="Agent library only — integrate into your own entry point"),
+]
 
 _FRONTENDS = [
     questionary.Choice("None  (recommended for API-only)", value="None",
@@ -155,8 +133,6 @@ _LOGGING_STYLES = [
 _INFRA_OPTIONS = [
     questionary.Choice("Azure Container Apps — Bicep  (recommended)", value="Azure Container Apps — Bicep",
                        description="Serverless containers on ACA — matches bpo_email_int, alex-hr pattern"),
-    questionary.Choice("AKS — Helm chart", value="AKS",
-                       description="Kubernetes on AKS — matches the monorepo elephant-path pattern"),
     questionary.Choice("Azure Web App", value="Azure Web App",
                        description="PaaS App Service — simpler ops, less control"),
     questionary.Choice("None", value="None",
@@ -195,6 +171,9 @@ def _checkbox(question: str, choices: list, yes: bool) -> list[str]:
     if result is None:
         console.print("\n[yellow]Cancelled.[/yellow]")
         raise typer.Exit(0)
+    if not result:
+        console.print("\n[yellow]Nothing selected — defaulting to REST API.[/yellow]")
+        return ["REST API"]
     return result
 
 
@@ -220,15 +199,8 @@ def _print_summary(cfg: ProjectConfig) -> None:
     rows: list[tuple[str, str]] = [
         ("Name", cfg.name),
         ("Python", cfg.python_version),
-        ("Structure", cfg.structure),
-    ]
-    if cfg.is_monorepo:
-        rows.append(("Apps", ", ".join(cfg.monorepo_apps) or "—"))
-    else:
-        rows.append(("App type", cfg.app_type))
-        rows.append(("API layer", cfg.api_framework))
-
-    rows += [
+        ("App type", ", ".join(cfg.app_types)),
+        ("API layer", cfg.api_framework),
         ("LLM backend", cfg.llm_backend),
         ("Agent framework", cfg.agent_framework),
         ("Frontend", cfg.frontend),
@@ -262,7 +234,7 @@ def main(
     """Interactive Python AI/GenAI project scaffolding CLI."""
     console.print(
         Panel(
-            "[bold]create-ai-app[/bold] — Python AI/GenAI scaffolding",
+            "[bold]new-ai-app[/bold] — Python AI/GenAI scaffolding",
             subtitle="[dim]Arrow keys to navigate · Enter to select · Space to toggle checkboxes[/dim]",
             border_style="blue",
         )
@@ -280,38 +252,24 @@ def main(
         _PYTHON_VERSIONS, yes,
     )
 
-    structure = _select("Project structure?", _STRUCTURE_TYPES, yes)
+    app_types = _checkbox("What kind of app?  [dim](space to select multiple)[/dim]", _APP_TYPES, yes)
 
-    # ── STRUCTURE BRANCH ─────────────────────────────────────────────────────
-    if structure == "Monorepo":
-        monorepo_apps = _checkbox("Which apps to include?", _MONOREPO_APPS, yes)
-        if not monorepo_apps:
-            monorepo_apps = ["REST API"]  # guard: at least one
-        app_type = "Monorepo"
-        api_framework = "FastAPI"  # each app uses its natural default
-    else:
-        monorepo_apps = []
-        app_type = _select("What kind of app?", _SINGLE_APP_TYPES, yes)
-
-        # API layer (hidden for Batch and Teams Bot which have fixed layers)
-        if app_type in ("REST API",):
-            api_framework = _select("API layer?", _API_FRAMEWORKS["REST API"], yes)
-        elif app_type == "Agent":
-            api_framework = _select("API / UI layer?", _API_FRAMEWORKS["Agent"], yes)
-        elif app_type == "Teams Bot":
-            api_framework = "aiohttp"  # always
-        else:  # Batch
-            api_framework = "None"
+    # API layer — depends on what was selected
+    if "REST API" in app_types:
+        api_framework = _select("API layer?", _API_FRAMEWORKS_REST, yes)
+    elif "Agent" in app_types and "Teams Bot" not in app_types:
+        api_framework = _select("API / UI layer?", _API_FRAMEWORKS_AGENT, yes)
+    elif "Teams Bot" in app_types:
+        api_framework = "aiohttp"
+    else:  # Batch only
+        api_framework = "None"
 
     # ── BACKEND ──────────────────────────────────────────────────────────────
     _rule("Backend", "green")
 
     llm_backend = _select("LLM backend?", _LLM_BACKENDS, yes)
 
-    needs_agent_fw = (
-        app_type in ("Agent", "Teams Bot", "Monorepo") or
-        (structure == "Monorepo" and any(a in monorepo_apps for a in ("Agent", "Teams Bot")))
-    )
+    needs_agent_fw = "Agent" in app_types or "Teams Bot" in app_types
     if needs_agent_fw:
         agent_framework = _select("Agent / orchestration framework?", _AGENT_FRAMEWORKS, yes)
     else:
@@ -320,8 +278,7 @@ def main(
     # ── FRONTEND ─────────────────────────────────────────────────────────────
     _rule("Frontend", "cyan")
 
-    # Skip frontend question for Teams Bot and Batch (no meaningful frontend)
-    skip_frontend = app_type in ("Teams Bot", "Batch / CronJob")
+    skip_frontend = app_types == ["Teams Bot"] or app_types == ["Batch / CronJob"]
     if not skip_frontend:
         frontend = _select("Frontend?", _FRONTENDS, yes)
     else:
@@ -373,9 +330,7 @@ def main(
     cfg = ProjectConfig(
         name=name,
         python_version=python_version,
-        structure=structure,
-        app_type=app_type,
-        monorepo_apps=monorepo_apps,
+        app_types=app_types,
         llm_backend=llm_backend,
         agent_framework=agent_framework,
         api_framework=api_framework,

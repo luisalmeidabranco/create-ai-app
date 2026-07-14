@@ -7,9 +7,7 @@ from dataclasses import dataclass, field
 class ProjectConfig:
     name: str
     python_version: str
-    structure: str                        # "Single app" | "Monorepo"
-    app_type: str                         # single-app type (ignored for monorepo)
-    monorepo_apps: list[str] = field(default_factory=list)  # monorepo selected apps
+    app_types: list[str]                   # e.g. ["REST API", "Agent"] — multi-select
     llm_backend: str = "Azure OpenAI"
     agent_framework: str = "None — raw SDK"
     api_framework: str = "FastAPI"
@@ -32,24 +30,25 @@ class ProjectConfig:
         return self.name.lower().replace("-", "_").replace(" ", "_")
 
     @property
-    def is_monorepo(self) -> bool:
-        return self.structure == "Monorepo"
+    def app_type(self) -> str:
+        """Primary app type — first selected."""
+        return self.app_types[0] if self.app_types else "REST API"
 
     @property
     def is_rest_api(self) -> bool:
-        return self.app_type == "REST API"
+        return "REST API" in self.app_types
 
     @property
     def is_agent(self) -> bool:
-        return self.app_type == "Agent"
+        return "Agent" in self.app_types
 
     @property
     def is_teams(self) -> bool:
-        return self.app_type == "Teams Bot"
+        return "Teams Bot" in self.app_types
 
     @property
     def is_batch(self) -> bool:
-        return self.app_type == "Batch / CronJob"
+        return "Batch / CronJob" in self.app_types
 
     @property
     def has_api(self) -> bool:

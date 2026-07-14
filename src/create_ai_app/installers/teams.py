@@ -7,23 +7,13 @@ from create_ai_app.models import ProjectConfig
 
 
 def install(cfg: ProjectConfig, target: Path) -> None:
-    """Install a Microsoft Teams Bot frontdoor (aiohttp, port 3978)."""
-    from create_ai_app.installers import base
-    base.install(cfg, target)
+    """Install Teams Bot files — base files already written by scaffold.py."""
     _write_main(cfg, target)
     _write_bot(cfg, target)
     _write_app_package(cfg, target)
     _add_teams_env(target)
     _write_dockerfile(cfg, target)
     _write_tests(cfg, target)
-
-
-def install_app(cfg: ProjectConfig, target: Path) -> None:
-    """Install Teams Bot as one app inside a monorepo (target is apps/teams-frontdoor/)."""
-    import copy
-    sub_cfg = copy.copy(cfg)
-    sub_cfg.name = target.name
-    install(sub_cfg, target)
 
 
 def _write_main(cfg: ProjectConfig, target: Path) -> None:

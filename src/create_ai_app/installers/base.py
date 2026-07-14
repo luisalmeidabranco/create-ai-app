@@ -61,7 +61,7 @@ def _write_pyproject(cfg: ProjectConfig, target: Path) -> None:
         )
 
     teams_deps = ""
-    if cfg.is_teams or (cfg.is_monorepo and "Teams Bot" in cfg.monorepo_apps):
+    if cfg.is_teams:
         teams_deps = '    "aiohttp>=3.11.0",\n    "microsoft-agents-hosting-aiohttp>=1.0.0b1",'
 
     all_extra = "\n".join(
