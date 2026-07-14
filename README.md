@@ -11,13 +11,13 @@ Encodes canonical patterns from production repos so new projects start correct a
 uv tool install git+https://github.com/luisalmeidabranco/create-ai-app
 
 # Run (interactive)
-create-ai-app
+new-ai-app
 
 # With a project name pre-filled
-create-ai-app my-project
+new-ai-app my-project
 
 # Accept all defaults (REST API + Azure OpenAI + FastAPI + Docker)
-create-ai-app my-project --yes
+new-ai-app my-project --yes
 ```
 
 > **Don't have uv?** Install it first:

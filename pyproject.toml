@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-create-ai-app = "create_ai_app.cli:app"
+new-ai-app = "create_ai_app.cli:app"
 
 [build-system]
 requires = ["hatchling"]
