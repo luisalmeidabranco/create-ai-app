@@ -248,11 +248,11 @@ def main(
     )
 
     python_version = _select(
-        "Python version?  [dim](uv will install it automatically if not present)[/dim]",
+        "Python version?  (uv will install it automatically if not present)",
         _PYTHON_VERSIONS, yes,
     )
 
-    app_types = _checkbox("What kind of app?  [dim](space to select multiple)[/dim]", _APP_TYPES, yes)
+    app_types = _checkbox("What kind of app?  (space to select multiple)", _APP_TYPES, yes)
 
     # API layer — depends on what was selected
     if "REST API" in app_types:
@@ -307,7 +307,7 @@ def main(
 
     logging_style = _select("Logging style?", _LOGGING_STYLES, yes)
 
-    precommit = _confirm("Set up pre-commit hooks?  [dim](ruff + check-yaml)[/dim]", True, yes)
+    precommit = _confirm("Set up pre-commit hooks?  (ruff + check-yaml)", True, yes)
 
     # ── DEVOPS ───────────────────────────────────────────────────────────────
     _rule("DevOps", "red")

@@ -28,7 +28,7 @@ def install(cfg: ProjectConfig, target: Path) -> None:
     _write_memory(pkg)
     _write_tests(cfg, target)
 
-    if cfg.api_framework == "FastAPI":
+    if cfg.api_framework == "FastAPI" and not cfg.is_rest_api:
         from create_ai_app.installers import api as api_installer
         api_installer.install(cfg, target)
     elif cfg.api_framework == "Chainlit":
@@ -120,7 +120,8 @@ Provide clear, structured responses.
     storage = pkg / "storage"
     storage.mkdir(exist_ok=True)
     (storage / "__init__.py").write_text("")
-    (storage / "cosmos_store.py").write_text(f"""from __future__ import annotations
+    if cfg.database == "CosmosDB":
+        (storage / "cosmos_store.py").write_text(f"""from __future__ import annotations
 import os
 from azure.cosmos.aio import CosmosClient
 from azure.identity import DefaultAzureCredential

@@ -8,12 +8,64 @@ from create_ai_app.models import ProjectConfig
 
 def install(cfg: ProjectConfig, target: Path) -> None:
     """Install Teams Bot files — base files already written by scaffold.py."""
-    _write_main(cfg, target)
-    _write_bot(cfg, target)
+    if cfg.is_rest_api:
+        # REST API already provides the FastAPI app — add /api/messages as a router
+        _write_fastapi_teams_router(cfg, target)
+        _patch_main_for_teams(cfg, target)
+    else:
+        _write_main(cfg, target)
+        _write_bot(cfg, target)
+        _write_dockerfile(cfg, target)
     _write_app_package(cfg, target)
     _add_teams_env(target)
-    _write_dockerfile(cfg, target)
     _write_tests(cfg, target)
+
+
+def _write_fastapi_teams_router(cfg: ProjectConfig, target: Path) -> None:
+    pkg = target / "src" / cfg.pkg_name
+    (pkg / "router_teams.py").write_text(f"""from __future__ import annotations
+import logging
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
+
+teams_router = APIRouter(prefix="/api")
+
+
+@teams_router.post("/messages")
+async def messages(request: Request) -> JSONResponse:
+    \"\"\"Microsoft Teams Bot Framework activity endpoint.\"\"\"
+    body = await request.json()
+    activity_type = body.get("type", "")
+    logger.debug("Teams activity: type=%s", activity_type)
+
+    if activity_type == "message":
+        text = body.get("text", "")
+        logger.info("Teams message: %s", text[:100])
+        # TODO: call your agent/backend here
+        return JSONResponse({{"type": "message", "text": f"Echo: {{text}}"}})
+
+    return JSONResponse({{}})
+""")
+
+
+def _patch_main_for_teams(cfg: ProjectConfig, target: Path) -> None:
+    main_path = target / "main.py"
+    if not main_path.exists():
+        return
+    content = main_path.read_text()
+    if "teams_router" in content:
+        return
+    content = content.replace(
+        f"from src.{cfg.pkg_name}.router import router",
+        f"from src.{cfg.pkg_name}.router import router\nfrom src.{cfg.pkg_name}.router_teams import teams_router",
+    )
+    content = content.replace(
+        "app.include_router(router)",
+        "app.include_router(router)\napp.include_router(teams_router)",
+    )
+    main_path.write_text(content)
 
 
 def _write_main(cfg: ProjectConfig, target: Path) -> None:

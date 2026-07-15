@@ -133,7 +133,11 @@ def _add_tree_nodes(node, base: Path, current: Path, depth: int = 0) -> None:
 
 
 def _print_next_steps(cfg: ProjectConfig, target: Path) -> None:
-    lines = [f"  cd {cfg.name}", "  cp .env.example .env   [dim]# fill in credentials[/dim]"]
+    lines = [
+        f"  cd {cfg.name}",
+        "  cp .env.example .env   [dim]# fill in credentials[/dim]",
+        "  uv run pytest",
+    ]
 
     if cfg.is_rest_api:
         lines.append("  uv run uvicorn main:app --reload --port 3100")
