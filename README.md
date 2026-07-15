@@ -4,38 +4,55 @@ Interactive Python AI/GenAI project scaffolding CLI — like `create-t3-app` for
 
 Encodes canonical patterns from production repos so new projects start correct and opinionated rather than blank and risky.
 
-## Quick start
+## Setup (new team member)
 
 ```sh
-# Install globally (requires uv)
-uv tool install git+https://github.com/luisalmeidabranco/create-ai-app
+# 1. install uv (once)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Run (interactive)
-new-ai-app
+# 2. clone and install
+git clone git@github.com:luisalmeidabranco/create-ai-app ~/create-ai-app
+cd ~/create-ai-app
+uv tool install .
 
-# With a project name pre-filled
-new-ai-app my-project
-
-# Accept all defaults (REST API + Azure OpenAI + FastAPI + Docker)
-new-ai-app my-project --yes
+# 3. wire up the Claude Code skill
+new-ai-app install-skill
 ```
 
-> **Don't have uv?** Install it first:
-> ```sh
-> curl -LsSf https://astral.sh/uv/install.sh | sh
-> ```
+That's it. The `/new-app` skill is now available in Claude Code.
+
+## Usage
+
+**Via Claude Code (recommended):**
+Type `/new-app` — Claude will interview you about your use case, generate a context file with domain-specific prompts/tools/schemas, then launch the CLI with intelligent defaults pre-selected.
+
+**Direct CLI:**
+```sh
+new-ai-app                        # interactive
+new-ai-app my-project             # name pre-filled
+new-ai-app my-project --yes       # accept all defaults
+```
+
+## Keeping up to date
+
+```sh
+git -C ~/create-ai-app pull
+uv tool install --reinstall ~/create-ai-app
+new-ai-app install-skill          # picks up skill updates
+```
 
 ## What it scaffolds
 
-### Project types
+### Project types (multi-select)
 
 | Type | What you get |
 |---|---|
 | **REST API** | FastAPI + gunicorn + Pydantic v2 + auth + health endpoint + multi-stage Dockerfile |
 | **Agent** | Tool-calling agent with ContextProviders, memory, MAF / LangGraph / AutoGen / raw SDK variants |
-| **Teams Bot** | aiohttp frontdoor for Microsoft Teams, port 3978, `appPackage/` manifest |
+| **Teams Bot** | Microsoft Teams frontdoor — aiohttp adapter or FastAPI route, port 3978, `appPackage/` manifest |
 | **Batch / CronJob** | typer CLI, batch runner, no web server |
-| **Monorepo** | Multiple apps under `apps/`, uv workspace root, shared `deployment/<env>/` |
+
+Combine types freely — REST API + Agent wires the agent into the FastAPI routes; Teams Bot alongside REST API adds `/api/messages` to the existing app.
 
 ### Always included
 
@@ -43,8 +60,9 @@ new-ai-app my-project --yes
 - `src/<pkg>/` layout
 - `config/config.yaml` + pydantic `BaseSettings` for env
 - `configure_logging()` with `LOG_LEVEL` + rotating file handler
-- `tests/` with conftest + two stub tests (pytest-asyncio, asyncio_mode=auto)
-- `.env.example` with the exact env var names used in production
+- `tests/` with conftest + stub tests (pytest-asyncio, asyncio_mode=auto)
+- `README.md` with getting started steps
+- `.env.example` with the exact env var names the code reads
 - `.gitignore` + `.dockerignore`
 
 ### Optional
@@ -55,9 +73,8 @@ new-ai-app my-project --yes
 - **Auth**: API key header · Azure Entra ID (JWT)
 - **Logging**: Console + rotating file · Console only · Structured JSON
 - **Frontend**: Next.js 15 + TypeScript → Tailwind? → shadcn/ui? · Streamlit · Chainlit
-- **Infra**: Azure Container Apps (Bicep) · AKS (Helm) · Azure Web App
-- **Environments**: dev / dev+prd / dev+qa+prd / dev+tst+acc+prd — generates `infra/vars.<env>.sh`
-- **Pre-commit**: ruff-check + ruff-format + check-yaml
+- **Infra**: Azure Container Apps (Bicep) · Azure Web App
+- **Environments**: dev / dev+prd / dev+qa+prd / dev+tst+acc+prd
 
 ## Mistakes this prevents
 
@@ -72,9 +89,4 @@ new-ai-app my-project --yes
 | `print()` for logging | `configure_logging()` + LOG_LEVEL env var |
 | Choosing LangChain by default | Forces explicit decision; raw SDK is the default |
 | Single environment | Per-env `infra/vars.<env>.sh` files generated |
-
-## Requirements
-
-- [uv](https://docs.astral.sh/uv/) — the only hard dependency
-- Python 3.11+ (uv will install it if needed)
-- git (for `git init` step)
+| Generic "example_tool" stubs | Domain-specific tools from the `/new-app` interview |

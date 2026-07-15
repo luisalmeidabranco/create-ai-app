@@ -22,6 +22,7 @@ class ProjectConfig:
     environments: str = "dev,qa,prd"      # comma-separated env names
     precommit: bool = True
     git: bool = True
+    ai_context: dict | None = None
 
     # ── derived ──────────────────────────────────────────────────────────────
 

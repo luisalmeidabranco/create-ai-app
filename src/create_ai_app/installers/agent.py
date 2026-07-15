@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from create_ai_app.models import ProjectConfig
@@ -24,7 +25,7 @@ def install(cfg: ProjectConfig, target: Path) -> None:
     else:
         _write_raw_sdk(cfg, pkg)
 
-    _write_tools(pkg)
+    _write_tools(pkg, cfg.ai_context)
     _write_memory(pkg)
     _write_tests(cfg, target)
 
@@ -40,6 +41,19 @@ def install(cfg: ProjectConfig, target: Path) -> None:
 # ── MAF ──────────────────────────────────────────────────────────────────────
 
 def _write_maf(cfg: ProjectConfig, pkg: Path) -> None:
+    ai = cfg.ai_context or {}
+    agent_names = ai.get("agent_names") or ["Triage", "Specialist"]
+    triage_name = agent_names[0]
+    specialist_name = agent_names[1] if len(agent_names) > 1 else "Specialist"
+    triage_prompt = ai.get("triage_prompt") or (
+        f"You are the entry point for {cfg.name}. Understand the user's intent "
+        f"and route to the appropriate specialist, or answer directly for simple questions."
+    )
+    specialist_prompt = ai.get("specialist_prompt") or (
+        f"You are a specialist for {cfg.name}. "
+        f"You receive tasks routed from the triage agent. Provide clear, structured responses."
+    )
+
     ctx = pkg / "context_providers"
     ctx.mkdir(exist_ok=True)
     (ctx / "__init__.py").write_text(
@@ -102,20 +116,8 @@ from pathlib import Path
 def load_prompt(name: str) -> str:
     return (Path(__file__).parent / f"{name}.md").read_text(encoding="utf-8")
 """)
-    (prompts / "triage.md").write_text(f"""# Triage Agent
-
-You are the entry point for {cfg.name}. Your job is to:
-1. Understand what the user needs
-2. Route to the appropriate specialist agent, or answer directly for simple questions
-
-When handing off, include a brief summary of the user's intent.
-""")
-    (prompts / "specialist.md").write_text(f"""# Specialist Agent
-
-You are a specialist for {cfg.name}.
-You receive tasks routed from the triage agent.
-Provide clear, structured responses.
-""")
+    (prompts / "triage.md").write_text(f"# {triage_name}\n\n{triage_prompt}\n")
+    (prompts / "specialist.md").write_text(f"# {specialist_name}\n\n{specialist_prompt}\n")
 
     storage = pkg / "storage"
     storage.mkdir(exist_ok=True)
@@ -160,7 +162,7 @@ def build_triage_agent(session_id: str = "default"):
         azure_deployment=settings.azure_openai_deployment,
     )
     return client.as_agent(
-        name="Triage",
+        name="{triage_name}",
         instructions=load_prompt("triage"),
         context_providers=[
             SearchContextProvider(),
@@ -184,7 +186,7 @@ def build_specialist_agent():
         azure_endpoint=settings.azure_openai_endpoint,
         azure_deployment=settings.azure_openai_deployment,
     )
-    return client.as_agent(name="Specialist", instructions=load_prompt("specialist"))
+    return client.as_agent(name="{specialist_name}", instructions=load_prompt("specialist"))
 """)
 
     (pkg / "services.py").write_text(f"""from __future__ import annotations
@@ -415,8 +417,59 @@ async def orchestrate(user_message: str, session_id: str = "default") -> str:
 
 # ── shared helpers ────────────────────────────────────────────────────────────
 
-def _write_tools(pkg: Path) -> None:
-    content = '''from __future__ import annotations
+def _write_tools(pkg: Path, ai_ctx: dict | None = None) -> None:
+    ai_tools = (ai_ctx or {}).get("tools") or []
+
+    if ai_tools:
+        tool_defs = []
+        handler_cases = []
+        for t in ai_tools:
+            params = t.get("parameters") or [{"name": "input", "type": "str"}]
+            props = {p["name"]: {"type": "string"} for p in params}
+            required = [p["name"] for p in params]
+            tool_defs.append(
+                f'        {{\n'
+                f'            "type": "function",\n'
+                f'            "function": {{\n'
+                f'                "name": "{t["name"]}",\n'
+                f'                "description": "{t["description"]}",\n'
+                f'                "parameters": {{\n'
+                f'                    "type": "object",\n'
+                f'                    "properties": {json.dumps(props)},\n'
+                f'                    "required": {json.dumps(required)},\n'
+                f'                }},\n'
+                f'            }},\n'
+                f'        }}'
+            )
+            first_param = params[0]["name"] if params else "input"
+            handler_cases.append(
+                f'    if name == "{t["name"]}":\n'
+                f'        # TODO: implement {t["name"]}\n'
+                f'        return f"{t["name"]} result for: {{args.get(\"{first_param}\")}}"\n'
+            )
+
+        tools_list = ",\n".join(tool_defs)
+        handler_body = "".join(handler_cases)
+        content = f'''from __future__ import annotations
+import json
+
+
+def get_tools() -> list[dict]:
+    return [
+{tools_list}
+    ]
+
+
+def handle_tool_call(name: str, arguments: str) -> str:
+    args = json.loads(arguments)
+{handler_body}    return f"Unknown tool: {{name}}"
+
+
+def get_langchain_tools() -> list:
+    return []
+'''
+    else:
+        content = '''from __future__ import annotations
 import json
 
 
@@ -441,14 +494,14 @@ def get_tools() -> list[dict]:
 def handle_tool_call(name: str, arguments: str) -> str:
     args = json.loads(arguments)
     if name == "example_tool":
-        return f"Tool result for: {args.get('input')}"
+        return f"Tool result for: {args.get(\'input\')}"
     return f"Unknown tool: {name}"
 
 
 def get_langchain_tools() -> list:
-    """Return LangChain-compatible tool list (stub)."""
     return []
 '''
+
     (pkg / "tools" / "tools.py").write_text(content)
     (pkg / "tools" / "__init__.py").write_text(
         "from .tools import get_tools, handle_tool_call, get_langchain_tools\n"

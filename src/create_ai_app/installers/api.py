@@ -210,17 +210,30 @@ router.include_router(_protected)
 
 def _write_schemas(cfg: ProjectConfig, target: Path) -> None:
     pkg = target / "src" / cfg.pkg_name
-    content = """from pydantic import BaseModel
+    ai = cfg.ai_context or {}
+
+    def _fields(raw: list | None, fallback: str) -> str:
+        if not raw:
+            return fallback
+        lines = []
+        for f in raw:
+            t = f.get("type", "str")
+            required = f.get("required", True)
+            lines.append(f'    {f["name"]}: {t}' + ("" if required else " | None = None"))
+        return "\n".join(lines)
+
+    req_fields = _fields(ai.get("request_fields"), "    input: str\n    context: dict = {}")
+    resp_fields = _fields(ai.get("response_fields"), "    output: str\n    metadata: dict = {}")
+
+    content = f"""from pydantic import BaseModel
 
 
 class RequestPayload(BaseModel):
-    input: str
-    context: dict = {}
+{req_fields}
 
 
 class ResponsePayload(BaseModel):
-    output: str
-    metadata: dict = {}
+{resp_fields}
 """
     (pkg / "schemas.py").write_text(content)
 
